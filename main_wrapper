@@ -1,0 +1,67 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Mar 23 13:07:51 2019
+
+@author: mc_ka
+"""
+
+import tensorflow as tf
+from vizdoom import * 
+import random
+import time
+
+from scipy import signal
+import numpy as np
+import matplotlib as mp
+
+game = DoomGame()
+game.load_config("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
+game.init()
+
+#sets screen resolution
+game.set_screen_resolution(ScreenResolution.RES_640X480)
+game.set_screen_format(ScreenFormat.RGB24)
+
+shoot = [0, 0, 1]
+left = [1, 0, 0]
+right = [0, 1, 0]
+actions = [shoot, left, right]
+
+#defines framestack as a empty matrix, which can contain 3 frames
+framestack=np.zeros((3,60,80))
+
+#defines empty array to store all frames
+collective=np.zeros((60,80))
+
+episodes = 10
+for i in range(episodes):
+    game.new_episode()
+    while not game.is_episode_finished():
+        state = game.get_state()
+        img = state.screen_buffer
+        
+        #Ændrer RGB til greyscale
+        greyscale = np.array(img).mean(axis=0)
+        
+        #Sampler screen
+        ds_factor=8
+        downscale_greyscale=signal.decimate(greyscale,ds_factor,axis=0)
+        downscale_greyscale=signal.decimate(downscale_greyscale,ds_factor,axis=1)
+        
+        framestack=np.stack((framestack[1,:,:],framestack[2,:,:],downscale_greyscale))
+
+        misc = state.game_variables
+        reward = game.make_action(random.choice(actions))
+        print("\treward:", reward)
+        time.sleep(0.02)
+    print("Result:", game.get_total_reward())
+    time.sleep(2)
+
+game.close()
+
+
+#trial plots
+mp.pyplot.imshow(framestack[0,:,:],cmap='gray')
+mp.pyplot.imshow(framestack[1,:,:],cmap='gray')
+mp.pyplot.imshow(framestack[2,:,:],cmap='gray')
+mp.pyplot.imshow(np.mean(framestack,axis=0),cmap='gray')
