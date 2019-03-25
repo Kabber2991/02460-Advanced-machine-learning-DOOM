@@ -13,6 +13,8 @@ import random                # Handling random number generation
 import time                  # Handling time calculation
 from skimage import transform# Help us to preprocess the frames
 
+from scipy import signal
+
 from collections import deque# Ordered collection with ends
 import matplotlib.pyplot as plt # Display graphs
 
@@ -27,12 +29,11 @@ Create our environment
 """
 def create_environment():
     game = DoomGame()
-    
     # Load the correct configuration
-    game.load_config("C:/Users/Sasha/AppData/Local/Continuum/anaconda3/Lib/site-packages/vizdoom/scenarios/basic.cfg")
+    game.load_config("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
     
     # Load the correct scenario (in our case defend_the_center scenario)
-    game.set_doom_scenario_path("C:/Users/Sasha/AppData/Local/Continuum/anaconda3/Lib/site-packages/vizdoom/scenarios/basic.wad")
+    game.set_doom_scenario_path("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.wad")
     
     game.init()
     
@@ -43,7 +44,6 @@ def create_environment():
     return game, possible_actions
 
 game, possible_actions = create_environment()
-
 
 """
 Step 3 
@@ -73,18 +73,21 @@ Image processing
     
     """
 def preprocess_frame(frame):
-    # Greyscale frame already done in our vizdoom config
-    # x = np.mean(frame,-1)
-    
     # Crop the screen (remove the roof because it contains no information)
     # [Up: Down, Left: right]
-    cropped_frame = frame[40:,:]
+    cropped_frame = frame[:,40:,:]
     
     # Normalize Pixel Values
     normalized_frame = cropped_frame/255.0
     
+    #Ændrer RGB til greyscale
+    greyscale = np.array(normalized_frame).mean(axis=0)
+    
     # Resize
-    preprocessed_frame = transform.resize(normalized_frame, [100,160])
+    #preprocessed_frame = transform.resize(normalized_frame, [100,160])
+    #Sampler screen
+    downscale_greyscale=signal.resample(greyscale,num=100,axis=0)
+    preprocessed_frame=signal.resample(downscale_greyscale,num=160,axis=1)
     
     return preprocessed_frame
 
@@ -121,7 +124,6 @@ def stack_frames(stacked_frames, state, is_new_episode):
     return stacked_state, stacked_frames
 
 
-
 def discount_and_normalize_rewards(episode_rewards):
     discounted_episode_rewards = np.zeros_like(episode_rewards)
     cumulative = 0.0
@@ -147,7 +149,7 @@ action_size = game.get_available_buttons_size() # 3 possible actions: turn left,
 stack_size = 4 # Defines how many frames are stacked together
 
 ## TRAINING HYPERPARAMETERS
-learning_rate = 0.0001 
+learning_rate = 0.002 
 num_epochs = 1000  # Total epochs for training 
 
 batch_size = 1000 # Each 1 is a timestep (NOT AN EPISODE) # YOU CAN CHANGE TO 5000 if you have GPU
@@ -155,8 +157,6 @@ gamma = 0.99 # Discounting rate
 
 ### MODIFY THIS TO FALSE IF YOU JUST WANT TO SEE THE TRAINED AGENT
 training = True
-
-
 
 class PGNetwork:
     def __init__(self, state_size, action_size, learning_rate, name='PGNetwork'):
@@ -279,9 +279,6 @@ class PGNetwork:
             with tf.name_scope("train"):
                 self.train_opt = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.loss)
                 
-
-
-
 # Reset the graph
 tf.reset_default_graph()
 
@@ -313,11 +310,26 @@ tf.summary.scalar("Reward_mean", PGNetwork.mean_reward_ )
 write_op = tf.summary.merge_all()
 
 
+def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
+    #if the agent shoots and misses
+    if action[2]==1 and reward==0:
+        reward+=-2
+    #if agent makes a kill
+    elif reward==1:
+        reward+=6
+    #if agent dies
+    elif reward==-1:
+        reward+=-100
+    #if the agent looses life
+    elif d_health!=0:   
+        reward+=-6
+        
+    return reward
+
 """
 Step 7
 TRAIN OUR AGENT
 """
-
 
 def make_batch(batch_size, stacked_frames):
     # Initialize lists: states, actions, rewards_of_episode, rewards_of_batch, discounted_rewards
@@ -335,7 +347,10 @@ def make_batch(batch_size, stacked_frames):
     # Get a new state
     state = game.get_state().screen_buffer
     state, stacked_frames = stack_frames(stacked_frames, state, True)
-
+    
+    #state of variables at start
+    ammo=game.get_state().game_variables[0]
+    health=game.get_state().game_variables[1]
     while True:
         # Run State Through Policy & Calculate Action
         try:
@@ -352,11 +367,28 @@ def make_batch(batch_size, stacked_frames):
         except ValueError:
             pass
         action = possible_actions[action]
-
+        
         # Perform action
         reward = game.make_action(action)
         done = game.is_episode_finished()
-
+        
+        if reward==1:
+            print("EPIC KILL")
+        elif reward==-1:
+            print("YOU DIED")
+        
+        if game.get_state()!=None:
+            #Prints ammo and health
+            #change in variables per frame
+            d_ammo=ammo-game.get_state().game_variables[0]
+            d_health=health=health-game.get_state().game_variables[1]
+            
+            #state of variables per frame
+            ammo=game.get_state().game_variables[0]
+            health=game.get_state().game_variables[1]
+            
+        reward=rewardfunction(reward,action,ammo,health,d_ammo,d_health)
+    
         # Store results
         states.append(state)
         actions.append(action)
@@ -364,9 +396,10 @@ def make_batch(batch_size, stacked_frames):
         
         if done:
             # The episode ends so no next state
-            next_state = np.zeros((100, 160), dtype=np.int)
+            next_state = np.zeros((3,100, 160), dtype=np.int)
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
             
+
             # Append the rewards_of_batch to reward_of_episode
             rewards_of_batch.append(rewards_of_episode)
             
@@ -476,9 +509,6 @@ if training == True:
             print("Model saved")
         epoch += 1
         
-        
-        
-        
 """
 Step 8
 WATCH THE AGENT PLAYING
@@ -488,27 +518,29 @@ WATCH THE AGENT PLAYING
 saver = tf.train.Saver()
 
 with tf.Session() as sess:
+    print("Starting training")
     game = DoomGame()
-
     # Load the correct configuration 
-    game.load_config("C:/Users/Sasha/AppData/Local/Continuum/anaconda3/Lib/site-packages/vizdoom/scenarios/basic.cfg")
+    game.load_config("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
     
     # Load the correct scenario (in our case basic scenario)
-    game.set_doom_scenario_path("C:/Users/Sasha/AppData/Local/Continuum/anaconda3/Lib/site-packages/vizdoom/scenarios/basic.wad")
+    game.set_doom_scenario_path("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.wad")
     
     # Load the model
     saver.restore(sess, "./models/model.ckpt")
+    
     game.init()
     
     for i in range(10):
-        
         # Launch a new episode
         game.new_episode()
 
         # Get a new state
         state = game.get_state().screen_buffer
         state, stacked_frames = stack_frames(stacked_frames, state, True)
-
+        
+        
+        
         while not game.is_episode_finished():
         
             # Run State Through Policy & Calculate Action
@@ -526,6 +558,7 @@ with tf.Session() as sess:
             reward = game.make_action(action)
             done = game.is_episode_finished()
             
+
             if done:
                 break
             else:
