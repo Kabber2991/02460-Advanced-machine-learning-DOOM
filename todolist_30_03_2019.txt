@@ -1,0 +1,13 @@
+Kasper:
+- Find 1 or 2 different algorithms to implement
+- Implement counter function of frames survived
+- Implement function that saves the model after x number of epochs, so we can make smaller runs
+
+Sasha:
+- Find 1 or 2 different algorithms to implement
+- Implement a function that can specify the scenarios to test in (needs to adapt to number of keys allowed)
+
+Hans:
+- Find 1 or 2 different algorithms to implement
+- Figure out a optimal reward function (it should work for different scenarios)
+- Write about the process so far (introduction to project framework and scope of project)
