@@ -12,7 +12,7 @@ from vizdoom import *        # Doom Environment
 import random                # Handling random number generation
 import time                  # Handling time calculation
 from skimage import transform# Help us to preprocess the frames
-
+import datetime
 from scipy import signal
 
 from collections import deque# Ordered collection with ends
@@ -22,7 +22,7 @@ import warnings # This ignore all the warning messages that are normally printed
 warnings.filterwarnings('ignore')
 
 
-
+startdate=datetime.datetime.now()
 """
 Step 2
 Create our environment
@@ -318,10 +318,12 @@ def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
     if reward==1:
         reward+=6
     #if agent dies
-    elif reward==-1:
-        reward+=-100
+# =============================================================================
+    elif reward==1:
+         reward+=6
+    
     #if the agent looses life
-    elif d_health!=0:   
+    elif d_health!=0:
         reward+=-6
         
     return reward
@@ -340,6 +342,7 @@ def make_batch(batch_size, stacked_frames):
     
     # Keep track of how many episodes in our batch (useful when we'll need to calculate the average reward per episode)
     episode_num  = 1
+    frames_survived=0
     
     # Launch a new episode
     game.new_episode()
@@ -369,6 +372,8 @@ def make_batch(batch_size, stacked_frames):
         action = possible_actions[action]
         reward = game.make_action(action)
         done = game.is_episode_finished()        
+        
+        frames_survived+=1
         
         if reward==1:
             print("EPIC KILL")
@@ -438,7 +443,7 @@ def make_batch(batch_size, stacked_frames):
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
             state = next_state
     
-    return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num
+    return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num,frames_survived
 
 
 
@@ -454,13 +459,24 @@ average_reward = []
 # Saver
 saver = tf.train.Saver()
 
+#Specify if and which model to load on resuming training
+reload=False
+reloadModel="model.ckpt"
+
+#Specify the new name for the model if the script is to make a new model from scratch
+modelname="model_ver2.ckpt"
+
+
 if training == True:
     # Load the model
-    #saver.restore(sess, "./models/model.ckpt")
-
+    if reload==True:
+        restorepath= "./models/" + reloadModel
+        saver.restore(sess, "./models/" + reloadModel)
+        print("Resuming training of model: " + reloadModel)
+        
     while epoch < num_epochs + 1:
         # Gather training data
-        states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb = make_batch(batch_size, stacked_frames)
+        states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb,frames_mb = make_batch(batch_size, stacked_frames)
 
         ### These part is used for analytics
         # Calculate the total reward ot the batch
@@ -508,9 +524,18 @@ if training == True:
         writer.flush()
 
         # Save Model
-        if epoch % 10 == 0:
-            saver.save(sess, "./models/model.ckpt")
-            print("Model saved")
+        #if epoch % 10 == 0:
+        
+        if epoch % 1 ==0:
+            #Ensures that the reloaded model is overwritten with the new model
+            if reload==True:
+                saver.save(sess,restorepath)
+                print("Resumed model saved")
+            #Ensure that a new model is created if so specified
+            else:
+                saver.save(sess, "./models/"+ modelname)
+                print("New model saved")
+        
         epoch += 1
         
 """
