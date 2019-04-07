@@ -302,6 +302,7 @@ SET UP TENSORBOARD
 
 # Setup TensorBoard Writer
 writer = tf.summary.FileWriter("/tensorboard/policy_gradients/1")
+writer.add_graph(sess.graph)
 
 ## Losses
 tf.summary.scalar("Loss", PGNetwork.loss)
@@ -310,6 +311,7 @@ tf.summary.scalar("Loss", PGNetwork.loss)
 tf.summary.scalar("Reward_mean", PGNetwork.mean_reward_ )
 
 write_op = tf.summary.merge_all()
+
 
 
 def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
