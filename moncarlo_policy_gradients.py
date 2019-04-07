@@ -556,8 +556,11 @@ with tf.Session() as sess:
     game.set_doom_scenario_path("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.wad")
     
     # Load the model
-    saver.restore(sess, "./models/model.ckpt")
-    
+    if reload==True:
+        saver.restore(sess,restorepath)
+    else:
+        saver.restore(sess, "./models/"+ modelname)
+        
     game.init()
     
     for i in range(10):
