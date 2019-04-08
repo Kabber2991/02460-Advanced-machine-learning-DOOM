@@ -1,0 +1,2 @@
+Tensorflow walkthrough by google:
+https://www.tensorflow.org/guide/summaries_and_tensorboard
