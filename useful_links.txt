@@ -1,6 +1,8 @@
 Tensorflow walkthrough by google:
 https://www.tensorflow.org/guide/summaries_and_tensorboard
 
+Turtorial:
+http://vizdoom.cs.put.edu.pl/tutorial
 
 A2C/A3C:
 https://medium.freecodecamp.org/an-intro-to-advantage-actor-critic-methods-lets-play-sonic-the-hedgehog-86d6240171d
