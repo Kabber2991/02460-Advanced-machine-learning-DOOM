@@ -18,3 +18,22 @@ Hans:
 
 ############################### To do list ######################
 
+Kasper:
+- Read about A2C and start doom implementation
+- Get TensorBoard working
+- Read through the A2C links on implementation provided by Kasper
+- Run gdoom on Kaspers computer and get result into a tabel. Kills/Frames survived.
+
+Sasha:
+- Read about A2C and start doom implementation
+- Get TensorBoard working
+- Action Matrix should be define in a way that action should be able to customised for each scenario ( Policy gradient)
+- Read through the A2C links on implementation provided by Kasper
+
+Hans:
+- Write sort teori on the Policy gradient
+- Read about A2C and start doom implementation
+- Get TensorBoard working
+- Read through the A2C links on implementation provided by Kasper
+- Look into getting the groom environment to work on 3 scenarios.
+-
