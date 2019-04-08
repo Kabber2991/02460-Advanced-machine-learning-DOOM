@@ -2,5 +2,9 @@ Tensorflow walkthrough by google:
 https://www.tensorflow.org/guide/summaries_and_tensorboard
 
 
+A2C/A3C:
+https://medium.freecodecamp.org/an-intro-to-advantage-actor-critic-methods-lets-play-sonic-the-hedgehog-86d6240171d
+
+
 Command for launching tensorboard:
 tensorboard --logdir=/tensorboard/policy_gradient/1
