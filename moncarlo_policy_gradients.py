@@ -15,20 +15,20 @@ import time                  # Handling time calculation
 from skimage import transform# Help us to preprocess the frames
 import datetime
 from scipy import signal
+import os
 
-from scipy import signal
 
 from collections import deque# Ordered collection with ends
 import matplotlib.pyplot as plt # Display graphs
 
-import os
-
 import warnings # This ignore all the warning messages that are normally printed during the training because of skiimage
 warnings.filterwarnings('ignore')
 
+NUM_ACTIONS = 43
+
 startdate=datetime.datetime.now()
 
-NUM_ACTIONS=43
+
 
 DOOM_SETTINGS = [
     ['basic.cfg', 'basic.wad', 'map01', 5, [0, 10, 11], -485, 10],                               # 0  - Basic
@@ -43,6 +43,8 @@ DOOM_SETTINGS = [
 ]
 Select_level = 2
 
+
+
 dp = os.path.dirname(vizdoom.__file__)
 scenario = dp + "/scenarios/"
 
@@ -53,12 +55,12 @@ Create our environment
 """
 def create_environment():
     game = DoomGame()
+    
+    
     # Load the correct configuration
-    #game.load_config("C://Users//Sasha//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
     game.load_config(scenario + DOOM_SETTINGS[Select_level][0])
     
     # Load the correct scenario (in our case defend_the_center scenario)
-    #game.set_doom_scenario_path("C://Users//Sasha//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.wad")
     game.set_doom_scenario_path(scenario + DOOM_SETTINGS[Select_level][1])
     game.init()
 
@@ -354,6 +356,22 @@ def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
 
     return reward
 
+def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
+    #if the agent shoots and misses
+    if action[2]==1 and reward==0:
+        reward+=-2
+    #if agent makes a kill
+    elif reward==1:
+        reward+=6
+    #if agent dies
+    elif reward==-1:
+        reward+=-100
+    #if the agent looses life
+    elif d_health!=0:
+        reward+=-6
+
+    return reward
+
 """
 Step 7
 TRAIN OUR AGENT
@@ -369,10 +387,9 @@ def make_batch(batch_size, stacked_frames):
     # Keep track of how many episodes in our batch (useful when we'll need to calculate the average reward per episode)
     episode_num  = 1
     frames_survived=0
-    Kil=[]
     Kills= 0
-    OverAllHighestKills=[]
-
+    Kill_list=[]    
+    
     # Launch a new episode
     game.new_episode()
 
@@ -408,9 +425,7 @@ def make_batch(batch_size, stacked_frames):
             Kills +=1
             print("EPIC KILL")
         elif reward==-1:
-            Kil.append(Kills)
             print("YOU DIED")
-            Kills=0
 
         if game.get_state()!=None:
             #Prints ammo and health
@@ -436,6 +451,10 @@ def make_batch(batch_size, stacked_frames):
         rewards_of_episode.append(reward)
 
         if done:
+            #appends kills
+            Kill_list.append(Kills)
+            Kills=0
+            
             # The episode ends so no next state
             next_state = np.zeros((3,100, 160), dtype=np.int)
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
@@ -474,9 +493,8 @@ def make_batch(batch_size, stacked_frames):
             next_state = game.get_state().screen_buffer
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
             state = next_state
-
-    return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num,frames_survived,np.max(OverAllHighestKills)
-
+        
+    return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num,frames_survived,Kill_list
 
 
 # Keep track of all rewards total for each batch
@@ -510,7 +528,7 @@ if training == True:
 
     while epoch < num_epochs + 1:
         # Gather training data
-        states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb,frames_mb,OverAllHighestKills = make_batch(batch_size, stacked_frames)
+        states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb,frames_mb,kills = make_batch(batch_size, stacked_frames)
 
         ### These part is used for analytics
         # Calculate the total reward ot the batch
@@ -531,8 +549,9 @@ if training == True:
         
         #Calculate maximum Kills
         #maxkils = np.amax(OverAllHighestKills)
-        Highest_total_kills_overall.append(OverAllHighestKills)
+        Highest_total_kills_overall.extend(kills)
         maxkils1 = np.amax(Highest_total_kills_overall)
+        
 
         print("==========================================")
         print("Epoch: ", epoch, "/", num_epochs)
@@ -590,10 +609,10 @@ with tf.Session() as sess:
     print("Starting training")
     game = DoomGame()
     # Load the correct configuration
-    game.load_config("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
+    game.load_config(scenario + DOOM_SETTINGS[Select_level][0])
 
     # Load the correct scenario (in our case basic scenario)
-    game.set_doom_scenario_path("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.wad")
+    game.set_doom_scenario_path(scenario + DOOM_SETTINGS[Select_level][1])
 
     # Load the model
     if reload==True:
