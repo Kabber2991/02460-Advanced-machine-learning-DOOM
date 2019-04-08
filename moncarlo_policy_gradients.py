@@ -25,22 +25,43 @@ import warnings # This ignore all the warning messages that are normally printed
 warnings.filterwarnings('ignore')
 
 
-#test Sasha
-
 
 startdate=datetime.datetime.now()
+
+
+
+DOOM_SETTINGS = [
+    ['basic.cfg', 'basic.wad', 'map01', 5, [0, 10, 11], -485, 10],                               # 0  - Basic
+    ['deadly_corridor.cfg', 'deadly_corridor.wad', '', 1, [0, 10, 11, 13, 14, 15], -120, 1000],  # 1 - Corridor
+    ['defend_the_center.cfg', 'defend_the_center.wad', '', 5, [0, 14, 15], -1, 10],              # 2 - DefendCenter
+    ['defend_the_line.cfg', 'defend_the_line.wad', '', 5, [0, 14, 15], -1, 15],                  # 3 - DefendLine
+    ['health_gathering.cfg', 'health_gathering.wad', 'map01', 5, [13, 14, 15], 0, 1000],         # 4 - HealthGathering
+    ['my_way_home.cfg', 'my_way_home.wad', '', 5, [13, 14, 15], -0.22, 0.5],                     # 5 - MyWayHome
+    ['predict_position.cfg', 'predict_position.wad', 'map01', 3, [0, 14, 15], -0.075, 0.5],      # 6 - PredictPosition
+    ['take_cover.cfg', 'take_cover.wad', 'map01', 5, [10, 11], 0, 750],                          # 7 - TakeCover
+    ['deathmatch.cfg', 'deathmatch.wad', '', 5, [x for x in range(NUM_ACTIONS) if x != 33], 0, 20] # 8 - Deathmatch
+]
+Select_level = 2
+
+
+
+dp = os.path.dirname(vizdoom.__file__)
+scenario = dp + "/scenarios/"
+
+
 """
 Step 2
 Create our environment
 """
 def create_environment():
-    game = DoomGame()
+
     # Load the correct configuration
-    game.load_config("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
-
+    #game.load_config("C://Users//Sasha//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
+    game.load_config(scenario + DOOM_SETTINGS[Select_level][0])
+    
     # Load the correct scenario (in our case defend_the_center scenario)
-    game.set_doom_scenario_path("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.wad")
-
+    #game.set_doom_scenario_path("C://Users//Sasha//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.wad")
+    game.set_doom_scenario_path(scenario + DOOM_SETTINGS[Select_level][1])
     game.init()
 
     # Here our possible actions
