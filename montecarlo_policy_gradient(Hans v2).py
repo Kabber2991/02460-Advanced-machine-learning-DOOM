@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt # Display graphs
 import warnings # This ignore all the warning messages that are normally printed during the training because of skiimage
 warnings.filterwarnings('ignore')
 
-
+#TEST HANS
 
 """
 Step 2
