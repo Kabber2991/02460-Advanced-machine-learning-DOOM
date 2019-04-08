@@ -1,2 +1,6 @@
 Tensorflow walkthrough by google:
 https://www.tensorflow.org/guide/summaries_and_tensorboard
+
+
+Command for launching tensorboard:
+tensorboard --logdir=/tensorboard/policy_gradient/1
