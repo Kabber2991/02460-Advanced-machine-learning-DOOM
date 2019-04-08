@@ -350,10 +350,6 @@ def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
     elif reward==1:
          reward+=6
 
-    #if the agent looses life
-    elif d_health!=0:
-        reward+=-6
-
     return reward
 
 
@@ -497,12 +493,11 @@ Highest_total_kills_overall= []
 saver = tf.train.Saver()
 
 #Specify if and which model to load on resuming training
-reload=True
+reload=False
 reloadModel="model.ckpt"
 
 #Specify the new name for the model if the script is to make a new model from scratch
-modelname="model_ver2.ckpt"
-
+modelname="policy_gradient.ckpt"
 
 if training == True:
     # Load the model
