@@ -369,10 +369,9 @@ def make_batch(batch_size, stacked_frames):
     # Keep track of how many episodes in our batch (useful when we'll need to calculate the average reward per episode)
     episode_num  = 1
     frames_survived=0
-    Kil=[]
     Kills= 0
-    OverAllHighestKills=[]
-
+    Kill_list=[]    
+    
     # Launch a new episode
     game.new_episode()
 
@@ -408,9 +407,7 @@ def make_batch(batch_size, stacked_frames):
             Kills +=1
             print("EPIC KILL")
         elif reward==-1:
-            Kil.append(Kills)
             print("YOU DIED")
-            Kills=0
 
         if game.get_state()!=None:
             #Prints ammo and health
@@ -436,6 +433,10 @@ def make_batch(batch_size, stacked_frames):
         rewards_of_episode.append(reward)
 
         if done:
+            #appends kills
+            Kill_list.append(Kills)
+            Kills=0
+            
             # The episode ends so no next state
             next_state = np.zeros((3,100, 160), dtype=np.int)
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
@@ -474,9 +475,8 @@ def make_batch(batch_size, stacked_frames):
             next_state = game.get_state().screen_buffer
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
             state = next_state
-
-    return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num,frames_survived,np.max(OverAllHighestKills)
-
+        
+    return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num,frames_survived,Kill_list
 
 
 # Keep track of all rewards total for each batch
@@ -510,7 +510,7 @@ if training == True:
 
     while epoch < num_epochs + 1:
         # Gather training data
-        states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb,frames_mb,OverAllHighestKills = make_batch(batch_size, stacked_frames)
+        states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb,frames_mb,kills = make_batch(batch_size, stacked_frames)
 
         ### These part is used for analytics
         # Calculate the total reward ot the batch
@@ -531,8 +531,9 @@ if training == True:
         
         #Calculate maximum Kills
         #maxkils = np.amax(OverAllHighestKills)
-        Highest_total_kills_overall.append(OverAllHighestKills)
+        Highest_total_kills_overall.extend(kills)
         maxkils1 = np.amax(Highest_total_kills_overall)
+        
 
         print("==========================================")
         print("Epoch: ", epoch, "/", num_epochs)
