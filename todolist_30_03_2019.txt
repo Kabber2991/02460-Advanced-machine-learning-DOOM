@@ -23,7 +23,6 @@ Kasper:
 - Get TensorBoard working
 - Read through the A2C links on implementation provided by Kasper
 - Run gdoom on Kaspers computer and get result into a tabel. Kills/Frames survived. 
-- 
 
 Sasha:
 - Read about A2C and start doom implementation 
