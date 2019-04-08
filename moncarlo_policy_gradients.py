@@ -512,7 +512,7 @@ Highest_total_kills_overall= []
 saver = tf.train.Saver()
 
 #Specify if and which model to load on resuming training
-reload=False
+reload=True
 reloadModel="model.ckpt"
 
 #Specify the new name for the model if the script is to make a new model from scratch
