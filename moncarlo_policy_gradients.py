@@ -1,3 +1,4 @@
+
 # -*- coding: utf-8 -*-
 """
 Created on Sun Mar 24 19:11:43 2019
@@ -365,6 +366,9 @@ def make_batch(batch_size, stacked_frames):
     # Keep track of how many episodes in our batch (useful when we'll need to calculate the average reward per episode)
     episode_num  = 1
     frames_survived=0
+    Kil=[]
+    Kills= 0
+    OverAllHighestKills=[]
 
     # Launch a new episode
     game.new_episode()
@@ -398,9 +402,12 @@ def make_batch(batch_size, stacked_frames):
         frames_survived+=1
 
         if reward==1:
+            Kills +=1
             print("EPIC KILL")
         elif reward==-1:
+            Kil.append(Kills)
             print("YOU DIED")
+            Kills=0
 
         if game.get_state()!=None:
             #Prints ammo and health
@@ -465,7 +472,7 @@ def make_batch(batch_size, stacked_frames):
             next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
             state = next_state
 
-    return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num,frames_survived
+    return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num,frames_survived,np.max(OverAllHighestKills)
 
 
 
@@ -477,6 +484,8 @@ maximumRewardRecorded = 0
 mean_reward_total = []
 epoch = 1
 average_reward = []
+Highest_total_kills= 0
+Highest_total_kills_overall= []
 
 # Saver
 saver = tf.train.Saver()
@@ -498,7 +507,7 @@ if training == True:
 
     while epoch < num_epochs + 1:
         # Gather training data
-        states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb,frames_mb = make_batch(batch_size, stacked_frames)
+        states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb,frames_mb,OverAllHighestKills = make_batch(batch_size, stacked_frames)
 
         ### These part is used for analytics
         # Calculate the total reward ot the batch
@@ -516,6 +525,11 @@ if training == True:
 
         # Calculate maximum reward recorded
         maximumRewardRecorded = np.amax(allRewards)
+        
+        #Calculate maximum Kills
+        #maxkils = np.amax(OverAllHighestKills)
+        Highest_total_kills_overall.append(OverAllHighestKills)
+        maxkils1 = np.amax(Highest_total_kills_overall)
 
         print("==========================================")
         print("Epoch: ", epoch, "/", num_epochs)
@@ -525,7 +539,8 @@ if training == True:
         print("Mean Reward of that batch {}".format(mean_reward_of_that_batch))
         print("Average Reward of all training: {}".format(average_reward_of_all_training))
         print("Max reward for a batch so far: {}".format(maximumRewardRecorded))
-
+        print("Max kills so far: {}".format(maxkils1))
+        
         # Feedforward, gradient and backpropagation
         loss_, _ = sess.run([PGNetwork.loss, PGNetwork.train_opt], feed_dict={PGNetwork.inputs_: states_mb.reshape((len(states_mb), 100,160,4)),
                                                             PGNetwork.actions: actions_mb,
