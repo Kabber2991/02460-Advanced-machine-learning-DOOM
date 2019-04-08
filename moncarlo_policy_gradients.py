@@ -305,7 +305,9 @@ SET UP TENSORBOARD
 """
 
 # Setup TensorBoard Writer
-writer = tf.summary.FileWriter("/tensorboard/policy_gradients/1")
+NAME_pg = "policy_grad{}".format(int(time.time()))
+writer = tf.summary.FileWriter("/tensorboard/policy_gradients/1/{}".format(NAME_pg)) #New saver in different folders
+
 writer.add_graph(sess.graph)
 
 ## Losses
