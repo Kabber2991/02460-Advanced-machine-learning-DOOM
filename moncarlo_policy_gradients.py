@@ -356,21 +356,6 @@ def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
 
     return reward
 
-def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
-    #if the agent shoots and misses
-    if action[2]==1 and reward==0:
-        reward+=-2
-    #if agent makes a kill
-    elif reward==1:
-        reward+=6
-    #if agent dies
-    elif reward==-1:
-        reward+=-100
-    #if the agent looses life
-    elif d_health!=0:
-        reward+=-6
-
-    return reward
 
 """
 Step 7
