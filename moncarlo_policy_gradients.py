@@ -284,7 +284,6 @@ class PGNetwork:
 # Reset the graph
 tf.reset_default_graph()
 
-
 # Instantiate the PGNetwork
 PGNetwork = PGNetwork(state_size, action_size, learning_rate)
 
@@ -311,8 +310,6 @@ tf.summary.scalar("Loss", PGNetwork.loss)
 tf.summary.scalar("Reward_mean", PGNetwork.mean_reward_ )
 
 write_op = tf.summary.merge_all()
-
-
 
 def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
     #if the agent shoots and misses
