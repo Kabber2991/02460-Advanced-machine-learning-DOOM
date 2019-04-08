@@ -21,14 +21,14 @@ from scipy import signal
 from collections import deque# Ordered collection with ends
 import matplotlib.pyplot as plt # Display graphs
 
+import os
+
 import warnings # This ignore all the warning messages that are normally printed during the training because of skiimage
 warnings.filterwarnings('ignore')
 
-
-
 startdate=datetime.datetime.now()
 
-
+NUM_ACTIONS=43
 
 DOOM_SETTINGS = [
     ['basic.cfg', 'basic.wad', 'map01', 5, [0, 10, 11], -485, 10],                               # 0  - Basic
@@ -43,8 +43,6 @@ DOOM_SETTINGS = [
 ]
 Select_level = 2
 
-
-
 dp = os.path.dirname(vizdoom.__file__)
 scenario = dp + "/scenarios/"
 
@@ -54,7 +52,7 @@ Step 2
 Create our environment
 """
 def create_environment():
-
+    game = DoomGame()
     # Load the correct configuration
     #game.load_config("C://Users//Sasha//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
     game.load_config(scenario + DOOM_SETTINGS[Select_level][0])
@@ -350,22 +348,6 @@ def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
     elif reward==1:
          reward+=6
 
-    #if the agent looses life
-    elif d_health!=0:
-        reward+=-6
-
-    return reward
-
-def rewardfunction(reward,action,ammo,health,d_ammo,d_health):
-    #if the agent shoots and misses
-    if action[2]==1 and reward==0:
-        reward+=-2
-    #if agent makes a kill
-    elif reward==1:
-        reward+=6
-    #if agent dies
-    elif reward==-1:
-        reward+=-100
     #if the agent looses life
     elif d_health!=0:
         reward+=-6
