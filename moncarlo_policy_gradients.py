@@ -15,8 +15,8 @@ import time                  # Handling time calculation
 from skimage import transform# Help us to preprocess the frames
 import datetime
 from scipy import signal
+import os
 
-from scipy import signal
 
 from collections import deque# Ordered collection with ends
 import matplotlib.pyplot as plt # Display graphs
@@ -24,7 +24,7 @@ import matplotlib.pyplot as plt # Display graphs
 import warnings # This ignore all the warning messages that are normally printed during the training because of skiimage
 warnings.filterwarnings('ignore')
 
-
+NUM_ACTIONS = 43
 
 startdate=datetime.datetime.now()
 
@@ -54,13 +54,13 @@ Step 2
 Create our environment
 """
 def create_environment():
-
+    game = DoomGame()
+    
+    
     # Load the correct configuration
-    #game.load_config("C://Users//Sasha//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
     game.load_config(scenario + DOOM_SETTINGS[Select_level][0])
     
     # Load the correct scenario (in our case defend_the_center scenario)
-    #game.set_doom_scenario_path("C://Users//Sasha//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.wad")
     game.set_doom_scenario_path(scenario + DOOM_SETTINGS[Select_level][1])
     game.init()
 
@@ -608,10 +608,10 @@ with tf.Session() as sess:
     print("Starting training")
     game = DoomGame()
     # Load the correct configuration
-    game.load_config("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.cfg")
+    game.load_config(scenario + DOOM_SETTINGS[Select_level][0])
 
     # Load the correct scenario (in our case basic scenario)
-    game.set_doom_scenario_path("C://Users//mc_ka//AppData//Local//Continuum//anaconda3//Lib//vizdoom//scenarios//defend_the_center.wad")
+    game.set_doom_scenario_path(scenario + DOOM_SETTINGS[Select_level][1])
 
     # Load the model
     if reload==True:
