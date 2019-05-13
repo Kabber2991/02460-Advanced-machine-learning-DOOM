@@ -166,8 +166,8 @@ class Worker():
         self.episode_rewards = []
         self.episode_lengths = []
         self.episode_mean_values = []
-        self.summary_writer = tf.summary.FileWriter("train_"+str(self.number))
-
+        self.summary_writer = tf.summary.FileWriter(model_path +"//train_"+str(self.number))
+        
         #Create the local copy of the network and the tensorflow op to copy global paramters to local network
         self.local_AC = AC_Network(s_size,a_size,self.name,trainer)
         self.update_local_ops = update_target_graph('global',self.name)        
@@ -237,6 +237,7 @@ class Worker():
         
     def work(self,max_episode_length,gamma,sess,coord,saver):
         episode_count = sess.run(self.global_episodes)
+        self.summary_writer.add_graph(sess.graph)
         total_steps = 0
         print ("Starting worker " + str(self.number))
         with sess.as_default(), sess.graph.as_default():                 
@@ -306,16 +307,16 @@ class Worker():
                                 
                 print(v_l)
                 # Periodically save gifs of episodes, model parameters, and summary statistics.
-                if episode_count % 5 == 0 and episode_count != 0:
+                if episode_count % 50== 0 and episode_count != 0:
                  #   if self.name == 'worker_0' and episode_count % 25 == 0:
                   #      time_per_step = 0.05
                    #     images = np.array(episode_frames)
                         #make_gif(images,'./frames/image'+str(episode_count)+'.gif',
                          #   duration=len(images)*time_per_step,true_image=True,salience=False)
-                    if episode_count % 250 == 0 and self.name == 'worker_0':
-                        saver.save(sess,self.model_path+'/model-'+str(episode_count)+'.cptk')
+                    if episode_count % 5 == 0 and self.name == 'worker_0':
+                        saver.save(sess,self.model_path+'/model.cptk')
                         print ("Saved Model")
-
+                        
                     mean_reward = np.mean(self.episode_rewards[-5:])
                     mean_length = np.mean(self.episode_lengths[-5:])
                     mean_value = np.mean(self.episode_mean_values[-5:])
@@ -329,24 +330,33 @@ class Worker():
                     summary.value.add(tag='Losses/Grad Norm', simple_value=float(g_n))
                     summary.value.add(tag='Losses/Var Norm', simple_value=float(v_n))
                     self.summary_writer.add_summary(summary, episode_count)
-
+                    
                     self.summary_writer.flush()
                 if self.name == 'worker_0':
                     sess.run(self.increment)
                 episode_count += 1
-            
+
+
+
 max_episode_length = 300
 gamma = .99 # discount rate for advantage estimation and reward discounting
 s_size = 7056 # Observations are greyscale frames of 84 * 84 * 1
 a_size = 3 # Agent can move Left, Right, or Fire
+
+#Specify if and which model to load on resuming training
 load_model = False
-model_path = './model'
+model_path = './model_A3C_13052019'
 
 tf.reset_default_graph()
 
-if not os.path.exists(model_path):
-    os.makedirs(model_path)
-    
+if load_model==False:
+    if not os.path.exists(model_path):
+        os.makedirs(model_path)
+else:
+    if not os.path.exists(model_path):
+        print("Requested model doesn't exist")
+        quit()
+
 #Create a directory to save episode playback gifs to
 if not os.path.exists('./frames'):
     os.makedirs('./frames')
