@@ -164,6 +164,7 @@ class Worker():
         self.global_episodes = global_episodes
         self.increment = self.global_episodes.assign_add(1)
         self.episode_rewards = []
+        self.episode_kills=[]
         self.episode_lengths = []
         self.episode_mean_values = []
         self.summary_writer = tf.summary.FileWriter(model_path +"//train_"+str(self.number))
@@ -193,7 +194,7 @@ class Worker():
         game.set_window_visible(True)
         game.set_sound_enabled(False)
         game.set_console_enabled(True)
-        game.set_living_reward(-1)
+        game.set_living_reward(0)
         game.set_mode(Mode.PLAYER)
         game.init()
         self.actions = self.actions = np.identity(a_size,dtype=bool).tolist()
@@ -247,6 +248,7 @@ class Worker():
                 episode_values = []
                 episode_frames = []
                 episode_reward = 0
+                episode_kill = 0
                 episode_step_count = 0
                 d = False
                 
@@ -264,8 +266,13 @@ class Worker():
                         self.local_AC.state_in[1]:rnn_state[1]})
                     a = np.random.choice(a_dist[0],p=a_dist[0])
                     a = np.argmax(a_dist == a)
-
-                    r = self.env.make_action(self.actions[a]) / 100.0
+                    
+                    # if r = 0 then kill confirmed
+                    r = self.env.make_action(self.actions[a])
+                    
+                    if r==1:
+                        episode_kill+=1
+                    
                     d = self.env.is_episode_finished()
                     if d == False:
                         s1 = self.env.get_state().screen_buffer
@@ -278,6 +285,7 @@ class Worker():
                     episode_values.append(v[0,0])
 
                     episode_reward += r
+                
                     s = s1                    
                     total_steps += 1
                     episode_step_count += 1
@@ -300,14 +308,15 @@ class Worker():
                 self.episode_rewards.append(episode_reward)
                 self.episode_lengths.append(episode_step_count)
                 self.episode_mean_values.append(np.mean(episode_values))
+                self.episode_kills.append(episode_kill)
+                
                 
                 # Update the network using the episode buffer at the end of the episode.
                 if len(episode_buffer) != 0:
                     v_l,p_l,e_l,g_n,v_n = self.train(episode_buffer,sess,gamma,0.0)
-                                
-                print(v_l)
-                # Periodically save gifs of episodes, model parameters, and summary statistics.
-                if episode_count % 50== 0 and episode_count != 0:
+    
+                # Saves summary statistics each time the network is trained
+                if len(episode_buffer) != 0 and episode_count != 0:
                  #   if self.name == 'worker_0' and episode_count % 25 == 0:
                   #      time_per_step = 0.05
                    #     images = np.array(episode_frames)
@@ -320,10 +329,13 @@ class Worker():
                     mean_reward = np.mean(self.episode_rewards[-5:])
                     mean_length = np.mean(self.episode_lengths[-5:])
                     mean_value = np.mean(self.episode_mean_values[-5:])
+                    mean_kills= np.mean(self.episode_kills[-5:])
+                    
                     summary = tf.Summary()
                     summary.value.add(tag='Perf/Reward', simple_value=float(mean_reward))
                     summary.value.add(tag='Perf/Length', simple_value=float(mean_length))
                     summary.value.add(tag='Perf/Value', simple_value=float(mean_value))
+                    summary.value.add(tag='Perf/Kills', simple_value=float(mean_kills))
                     summary.value.add(tag='Losses/Value Loss', simple_value=float(v_l))
                     summary.value.add(tag='Losses/Policy Loss', simple_value=float(p_l))
                     summary.value.add(tag='Losses/Entropy', simple_value=float(e_l))
@@ -336,12 +348,11 @@ class Worker():
                     sess.run(self.increment)
                 episode_count += 1
 
-
-
 max_episode_length = 300
 gamma = .99 # discount rate for advantage estimation and reward discounting
 s_size = 7056 # Observations are greyscale frames of 84 * 84 * 1
 a_size = 3 # Agent can move Left, Right, or Fire
+learn_rate=3e-4 # Learning rate
 
 #Specify if and which model to load on resuming training
 load_model = False
@@ -363,7 +374,7 @@ if not os.path.exists('./frames'):
 
 with tf.device("/cpu:0"): 
     global_episodes = tf.Variable(0,dtype=tf.int32,name='global_episodes',trainable=False)
-    trainer = tf.train.AdamOptimizer(learning_rate=1e-4)
+    trainer = tf.train.AdamOptimizer(learning_rate=learn_rate)
     master_network = AC_Network(s_size,a_size,'global',None) # Generate global network
     num_workers = multiprocessing.cpu_count() # Set workers to number of available CPU threads
     workers = []
