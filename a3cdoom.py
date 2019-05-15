@@ -94,12 +94,22 @@ class AC_Network():
             #Input and visual encoding layers
             self.inputs = tf.placeholder(shape=[None,s_size],dtype=tf.float32)
             self.imageIn = tf.reshape(self.inputs,shape=[-1,84,84,1])
+            
+            
             self.conv1 = slim.conv2d(activation_fn=tf.nn.elu,
-                inputs=self.imageIn,num_outputs=16,
+                inputs=self.imageIn,num_outputs=32,
                 kernel_size=[8,8],stride=[4,4],padding='VALID')
+            
+            
             self.conv2 = slim.conv2d(activation_fn=tf.nn.elu,
-                inputs=self.conv1,num_outputs=32,
+                inputs=self.conv1,num_outputs=64,
                 kernel_size=[4,4],stride=[2,2],padding='VALID')
+
+# This fourth layer seems to slow the A3C too much, and therefore it is left out
+#            self.conv3 = slim.conv2d(activation_fn=tf.nn.elu,
+#                inputs=self.conv2,num_outputs=128,
+#                kernel_size=[4,4],stride=[2,2],padding='VALID')            
+            
             hidden = slim.fully_connected(slim.flatten(self.conv2),256,activation_fn=tf.nn.elu)
             
             #Recurrent network for temporal dependencies
@@ -176,27 +186,40 @@ class Worker():
         #The Below code is related to setting up the Doom environment
         game.set_doom_scenario_path(scenario + DOOM_SETTINGS[Select_level][1]) #This corresponds to the simple task we will pose our agent
         game.set_doom_map("map01")
+        
+        # setter skærm opløsningen
         game.set_screen_resolution(ScreenResolution.RES_160X120)
         game.set_screen_format(ScreenFormat.GRAY8)
+        
+        # render options
         game.set_render_hud(False)
         game.set_render_crosshair(False)
         game.set_render_weapon(True)
         game.set_render_decals(False)
         game.set_render_particles(False)
+        
+        #Loader available buttions
         game.add_available_button(Button.TURN_LEFT)
         game.add_available_button(Button.TURN_RIGHT)
         game.add_available_button(Button.ATTACK)
+        
+        # loader game variables
         game.add_available_game_variable(GameVariable.AMMO2)
         game.add_available_game_variable(GameVariable.POSITION_X)
         game.add_available_game_variable(GameVariable.POSITION_Y)
-        game.set_episode_timeout(300)
+        
+        #setter start time
         game.set_episode_start_time(10)
         game.set_window_visible(True)
         game.set_sound_enabled(False)
         game.set_console_enabled(True)
+        
+        # reward setting for game
         game.set_living_reward(0)
+        
         game.set_mode(Mode.PLAYER)
         game.init()
+        
         self.actions = self.actions = np.identity(a_size,dtype=bool).tolist()
         #End Doom set-up
         self.env = game
@@ -226,6 +249,7 @@ class Worker():
             self.local_AC.advantages:advantages,
             self.local_AC.state_in[0]:self.batch_rnn_state[0],
             self.local_AC.state_in[1]:self.batch_rnn_state[1]}
+        
         v_l,p_l,e_l,g_n,v_n, self.batch_rnn_state,_ = sess.run([self.local_AC.value_loss,
             self.local_AC.policy_loss,
             self.local_AC.entropy,
@@ -258,6 +282,10 @@ class Worker():
                 s = process_frame(s)
                 rnn_state = self.local_AC.state_init
                 self.batch_rnn_state = rnn_state
+                
+                    #state of variables at start
+                ammo=self.env.get_state().game_variables[0]
+                health=self.env.get_state().game_variables[1]
                 while self.env.is_episode_finished() == False:
                     #Take an action using probabilities from policy network output.
                     a_dist,v,rnn_state = sess.run([self.local_AC.policy,self.local_AC.value,self.local_AC.state_out], 
@@ -270,7 +298,26 @@ class Worker():
                     # if r = 0 then kill confirmed
                     r = self.env.make_action(self.actions[a])
                     
+                    # reward function
+                    if self.env.get_state()!=None:
+                        #Prints ammo and health
+                        #change in variables per frame
+                        d_ammo=ammo-self.env.get_state().game_variables[0]
+                        d_health=health=health-self.env.get_state().game_variables[1]
+            
+                        #state of variables per frame
+                        ammo=self.env.get_state().game_variables[0]
+                        health=self.env.get_state().game_variables[1]
+                    
+                    
+                    if d_health<0:
+                        r-=0.1
+                    # If show is fired but no one is killed
+                    if d_ammo!=0 and r!=1:
+                        r-=0.1
+                    # if a monster is killed
                     if r==1:
+                        r+=1
                         episode_kill+=1
                     
                     d = self.env.is_episode_finished()
@@ -283,8 +330,9 @@ class Worker():
                         
                     episode_buffer.append([s,a,r,s1,d,v[0,0]])
                     episode_values.append(v[0,0])
-
-                    episode_reward += r
+                    
+                    # Adds 1 to the reward to ensure positivity
+                    episode_reward += (r/100)+1
                 
                     s = s1                    
                     total_steps += 1
@@ -292,7 +340,7 @@ class Worker():
                     
                     # If the episode hasn't ended, but the experience buffer is full, then we
                     # make an update step using that experience rollout.
-                    if len(episode_buffer) == 30 and d != True and episode_step_count != max_episode_length - 1:
+                    if len(episode_buffer) == max_episode_length and d != True:
                         # Since we don't know what the true final return is, we "bootstrap" from our current
                         # value estimation.
                         v1 = sess.run(self.local_AC.value, 
@@ -309,7 +357,6 @@ class Worker():
                 self.episode_lengths.append(episode_step_count)
                 self.episode_mean_values.append(np.mean(episode_values))
                 self.episode_kills.append(episode_kill)
-                
                 
                 # Update the network using the episode buffer at the end of the episode.
                 if len(episode_buffer) != 0:
@@ -352,11 +399,11 @@ max_episode_length = 300
 gamma = .99 # discount rate for advantage estimation and reward discounting
 s_size = 7056 # Observations are greyscale frames of 84 * 84 * 1
 a_size = 3 # Agent can move Left, Right, or Fire
-learn_rate=3e-4 # Learning rate
-
+learn_rate=1e-3 # Learning rate
+epsi=0.1 # epsilon for Adam optimizer
 #Specify if and which model to load on resuming training
 load_model = False
-model_path = './model_A3C_13052019'
+model_path = './model_A3C_15052019_Ver6_' + str(Select_level)
 
 tf.reset_default_graph()
 
@@ -374,7 +421,7 @@ if not os.path.exists('./frames'):
 
 with tf.device("/cpu:0"): 
     global_episodes = tf.Variable(0,dtype=tf.int32,name='global_episodes',trainable=False)
-    trainer = tf.train.AdamOptimizer(learning_rate=learn_rate)
+    trainer = tf.train.AdamOptimizer(learning_rate=learn_rate,epsilon=epsi)
     master_network = AC_Network(s_size,a_size,'global',None) # Generate global network
     num_workers = multiprocessing.cpu_count() # Set workers to number of available CPU threads
     workers = []
