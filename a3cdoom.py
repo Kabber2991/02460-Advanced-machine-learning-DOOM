@@ -116,9 +116,11 @@ class AC_Network():
             lstm_cell = tf.contrib.rnn.BasicLSTMCell(256,state_is_tuple=True)
             c_init = np.zeros((1, lstm_cell.state_size.c), np.float32)
             h_init = np.zeros((1, lstm_cell.state_size.h), np.float32)
+            
             self.state_init = [c_init, h_init]
             c_in = tf.placeholder(tf.float32, [1, lstm_cell.state_size.c])
             h_in = tf.placeholder(tf.float32, [1, lstm_cell.state_size.h])
+            
             self.state_in = (c_in, h_in)
             rnn_in = tf.expand_dims(hidden, [0])
             step_size = tf.shape(self.imageIn)[:1]
@@ -127,6 +129,7 @@ class AC_Network():
                 lstm_cell, rnn_in, initial_state=state_in, sequence_length=step_size,
                 time_major=False)
             lstm_c, lstm_h = lstm_state
+            
             self.state_out = (lstm_c[:1, :], lstm_h[:1, :])
             rnn_out = tf.reshape(lstm_outputs, [-1, 256])
             
@@ -151,7 +154,20 @@ class AC_Network():
 
                 #Loss functions
                 self.value_loss = 0.5 * tf.reduce_sum(tf.square(self.target_v - tf.reshape(self.value,[-1])))
-                self.entropy = - tf.reduce_sum(self.policy * tf.log(self.policy))
+                
+                # new entropy calculation
+                # taken from:
+                # https://adventuresinmachinelearning.com/python-tensorflow-tutorial/
+                # setting up entropy
+                self.policy_clipped = tf.clip_by_value(self.policy, 1e-10, 0.9999999)
+                self.templ_entro=self.actions_onehot * tf.log(self.policy_clipped)
+                self.cross_entropy = -tf.reduce_mean(tf.reduce_sum(self.actions_onehot * tf.log(self.policy_clipped)+ (1 - self.actions_onehot) * tf.log(1 - self.policy_clipped), axis=1))
+                
+                self.entropy=self.cross_entropy
+                
+                # old entropy calculation
+                #self.entropy = - tf.reduce_sum(self.policy * tf.log(self.policy))
+                
                 self.policy_loss = -tf.reduce_sum(tf.log(self.responsible_outputs)*self.advantages)
                 self.loss = 0.5 * self.value_loss + self.policy_loss - self.entropy * 0.01
                 
@@ -403,7 +419,7 @@ learn_rate=1e-3 # Learning rate
 epsi=0.1 # epsilon for Adam optimizer
 #Specify if and which model to load on resuming training
 load_model = False
-model_path = './model_A3C_15052019_Ver6_' + str(Select_level)
+model_path = './model_A3C_15052019_Ver7_' + str(Select_level)
 
 tf.reset_default_graph()
 
