@@ -49,7 +49,7 @@ DOOM_SETTINGS = [
     ['take_cover.cfg', 'take_cover.wad', 'map01', 5, [10, 11], 0, 750],                          # 7 - TakeCover
     ['deathmatch.cfg', 'deathmatch.wad', '', 5, [x for x in range(NUM_ACTIONS) if x != 33], 0, 20] # 8 - Deathmatch
 ]
-Select_level = 2
+Select_level = 3
 
 
 dp = os.path.dirname(vizdoom.__file__)
@@ -138,6 +138,7 @@ class AC_Network():
                 activation_fn=tf.nn.softmax,
                 weights_initializer=normalized_columns_initializer(0.01),
                 biases_initializer=None)
+            
             self.value = slim.fully_connected(rnn_out,1,
                 activation_fn=None,
                 weights_initializer=normalized_columns_initializer(1.0),
@@ -160,16 +161,14 @@ class AC_Network():
                 # https://adventuresinmachinelearning.com/python-tensorflow-tutorial/
                 # setting up entropy
                 self.policy_clipped = tf.clip_by_value(self.policy, 1e-10, 0.9999999)
-                self.templ_entro=self.actions_onehot * tf.log(self.policy_clipped)
-                self.cross_entropy = -tf.reduce_mean(tf.reduce_sum(self.actions_onehot * tf.log(self.policy_clipped)+ (1 - self.actions_onehot) * tf.log(1 - self.policy_clipped), axis=1))
-                
-                self.entropy=self.cross_entropy
+                self.entropy = -tf.reduce_mean(tf.reduce_sum(self.actions_onehot * tf.log(self.policy_clipped)+ (1 - self.actions_onehot) * tf.log(1 - self.policy_clipped), axis=1))
                 
                 # old entropy calculation
                 #self.entropy = - tf.reduce_sum(self.policy * tf.log(self.policy))
-                
                 self.policy_loss = -tf.reduce_sum(tf.log(self.responsible_outputs)*self.advantages)
-                self.loss = 0.5 * self.value_loss + self.policy_loss - self.entropy * 0.01
+                
+                # Total loss function
+                self.loss = self.value_loss + self.policy_loss + self.entropy 
                 
                 #Get gradients from local network using local losses
                 local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope)
@@ -215,10 +214,27 @@ class Worker():
         game.set_render_particles(False)
         
         #Loader available buttions
-        game.add_available_button(Button.TURN_LEFT)
-        game.add_available_button(Button.TURN_RIGHT)
-        game.add_available_button(Button.ATTACK)
-        
+        # settings for defend the center:
+        if Select_level==2:
+            game.add_available_button(Button.TURN_LEFT)
+            game.add_available_button(Button.TURN_RIGHT)
+            game.add_available_button(Button.ATTACK)
+            
+            game.set_living_reward(0)
+        # setting for defend the line:
+        elif Select_level==3:
+            game.add_available_button(Button.TURN_LEFT)
+            game.add_available_button(Button.TURN_RIGHT)
+            game.add_available_button(Button.ATTACK)
+            
+            game.set_living_reward(0)
+        # setting for health gathering
+        elif Select_level==4:
+            game.add_available_button(Button.TURN_LEFT)
+            game.add_available_button(Button.TURN_RIGHT)
+            game.add_available_button(Button.MOVE_FORWARD)
+            game.set_living_reward(1)
+
         # loader game variables
         game.add_available_game_variable(GameVariable.AMMO2)
         game.add_available_game_variable(GameVariable.POSITION_X)
@@ -419,7 +435,7 @@ learn_rate=1e-3 # Learning rate
 epsi=0.1 # epsilon for Adam optimizer
 #Specify if and which model to load on resuming training
 load_model = False
-model_path = './model_A3C_15052019_Ver7_' + str(Select_level)
+model_path = './model_A3C_15052019_Ver1_' + str(Select_level)
 
 tf.reset_default_graph()
 
