@@ -1,10 +1,25 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Apr 14 18:54:26 2019
+NOTICE
+NOTICE
+NOTICE
+NOTICE
 
-@author: Sasha
+EXAMPLE:
+This A3C is based on the example given in the following GitHub:
+https://github.com/awjuliani/DeepRL-Agents/blob/master/A3C-Doom.ipynb
+
+TEAM:
+    S124217
+    s145436
+    s174454
+    
+In order to be as transparent with what is coded by the team, 
+and what was taken from the example. The script will be seperated in sections
+where the main contributor, that being team or example is marked in the begning 
+    
 """
-
+#%% General settings
 import threading
 import multiprocessing
 import numpy as np
@@ -12,7 +27,6 @@ import matplotlib.pyplot as plt
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 import scipy.signal
-#%matplotlib inline
 from helper import *
 import vizdoom
 from vizdoom import *
@@ -36,8 +50,6 @@ TARGET_SCORE = 6
 
 startdate=datetime.datetime.now()
 
-
-
 DOOM_SETTINGS = [
     ['basic.cfg', 'basic.wad', 'map01', 5, [0, 10, 11], -485, 10],                               # 0  - Basic
     ['deadly_corridor.cfg', 'deadly_corridor.wad', '', 1, [0, 10, 11, 13, 14, 15], -120, 1000],  # 1 - Corridor
@@ -49,13 +61,10 @@ DOOM_SETTINGS = [
     ['take_cover.cfg', 'take_cover.wad', 'map01', 5, [10, 11], 0, 750],                          # 7 - TakeCover
     ['deathmatch.cfg', 'deathmatch.wad', '', 5, [x for x in range(NUM_ACTIONS) if x != 33], 0, 20] # 8 - Deathmatch
 ]
-Select_level = 3
-
+Select_level = 4
 
 dp = os.path.dirname(vizdoom.__file__)
 scenario = dp + "/scenarios/"
-
-
 
 # Copies one set of variables to another.
 # Used to set worker network parameters to those of global network.
@@ -91,15 +100,14 @@ def normalized_columns_initializer(std=1.0):
 class AC_Network():
     def __init__(self,s_size,a_size,scope,trainer):
         with tf.variable_scope(scope):
+            #%% neural network  TEAM
             #Input and visual encoding layers
             self.inputs = tf.placeholder(shape=[None,s_size],dtype=tf.float32)
             self.imageIn = tf.reshape(self.inputs,shape=[-1,84,84,1])
             
-            
             self.conv1 = slim.conv2d(activation_fn=tf.nn.elu,
                 inputs=self.imageIn,num_outputs=32,
                 kernel_size=[8,8],stride=[4,4],padding='VALID')
-            
             
             self.conv2 = slim.conv2d(activation_fn=tf.nn.elu,
                 inputs=self.conv1,num_outputs=64,
@@ -112,6 +120,7 @@ class AC_Network():
             
             hidden = slim.fully_connected(slim.flatten(self.conv2),256,activation_fn=tf.nn.elu)
             
+            #%% EXAMPLE
             #Recurrent network for temporal dependencies
             lstm_cell = tf.contrib.rnn.BasicLSTMCell(256,state_is_tuple=True)
             c_init = np.zeros((1, lstm_cell.state_size.c), np.float32)
@@ -122,15 +131,22 @@ class AC_Network():
             h_in = tf.placeholder(tf.float32, [1, lstm_cell.state_size.h])
             
             self.state_in = (c_in, h_in)
+            
             rnn_in = tf.expand_dims(hidden, [0])
+            
             step_size = tf.shape(self.imageIn)[:1]
+            
             state_in = tf.contrib.rnn.LSTMStateTuple(c_in, h_in)
+            
+            # setting up the dynamic rnn to explore tempero
             lstm_outputs, lstm_state = tf.nn.dynamic_rnn(
                 lstm_cell, rnn_in, initial_state=state_in, sequence_length=step_size,
                 time_major=False)
+            
             lstm_c, lstm_h = lstm_state
             
             self.state_out = (lstm_c[:1, :], lstm_h[:1, :])
+            
             rnn_out = tf.reshape(lstm_outputs, [-1, 256])
             
             #Output layers for policy and value estimations
@@ -154,8 +170,9 @@ class AC_Network():
                 self.responsible_outputs = tf.reduce_sum(self.policy * self.actions_onehot, [1])
 
                 #Loss functions
-                self.value_loss = 0.5 * tf.reduce_sum(tf.square(self.target_v - tf.reshape(self.value,[-1])))
+                self.value_loss = tf.reduce_sum(tf.square(self.target_v - tf.reshape(self.value,[-1])))
                 
+                #%% loss function - TEAM
                 # new entropy calculation
                 # taken from:
                 # https://adventuresinmachinelearning.com/python-tensorflow-tutorial/
@@ -168,14 +185,17 @@ class AC_Network():
                 self.policy_loss = -tf.reduce_sum(tf.log(self.responsible_outputs)*self.advantages)
                 
                 # Total loss function
-                self.loss = self.value_loss + self.policy_loss + self.entropy 
+                # Ensuring and entropy doesn't end up making a single bad decision
+                # by controlling the weight of each factor
+                # ensuring that the policy and value is weighted equally in the loss function
+                self.loss = 0.1*self.value_loss + self.policy_loss + self.entropy *0.00001
                 
                 #Get gradients from local network using local losses
                 local_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope)
                 self.gradients = tf.gradients(self.loss,local_vars)
                 self.var_norms = tf.global_norm(local_vars)
                 grads,self.grad_norms = tf.clip_by_global_norm(self.gradients,40.0)
-                
+                #%% example
                 #Apply local gradients to global network
                 global_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, 'global')
                 self.apply_grads = trainer.apply_gradients(zip(grads,global_vars))
@@ -215,12 +235,19 @@ class Worker():
         
         #Loader available buttions
         # settings for defend the center:
+        #%% TEAM
         if Select_level==2:
             game.add_available_button(Button.TURN_LEFT)
             game.add_available_button(Button.TURN_RIGHT)
             game.add_available_button(Button.ATTACK)
             
             game.set_living_reward(0)
+            
+            # loader game variables
+            game.add_available_game_variable(GameVariable.AMMO2)
+            game.add_available_game_variable(GameVariable.HEALTH)
+            game.add_available_game_variable(GameVariable.POSITION_X)
+            game.add_available_game_variable(GameVariable.POSITION_Y)
         # setting for defend the line:
         elif Select_level==3:
             game.add_available_button(Button.TURN_LEFT)
@@ -228,6 +255,12 @@ class Worker():
             game.add_available_button(Button.ATTACK)
             
             game.set_living_reward(0)
+            
+            # loader game variables
+            game.add_available_game_variable(GameVariable.AMMO2)
+            game.add_available_game_variable(GameVariable.HEALTH)
+            game.add_available_game_variable(GameVariable.POSITION_X)
+            game.add_available_game_variable(GameVariable.POSITION_Y)
         # setting for health gathering
         elif Select_level==4:
             game.add_available_button(Button.TURN_LEFT)
@@ -235,11 +268,12 @@ class Worker():
             game.add_available_button(Button.MOVE_FORWARD)
             game.set_living_reward(1)
 
-        # loader game variables
-        game.add_available_game_variable(GameVariable.AMMO2)
-        game.add_available_game_variable(GameVariable.POSITION_X)
-        game.add_available_game_variable(GameVariable.POSITION_Y)
+            # loader game variables
+            game.add_available_game_variable(GameVariable.HEALTH)
+            game.add_available_game_variable(GameVariable.POSITION_X)
+            game.add_available_game_variable(GameVariable.POSITION_Y)
         
+        #%% example
         #setter start time
         game.set_episode_start_time(10)
         game.set_window_visible(True)
@@ -308,6 +342,7 @@ class Worker():
                 episode_step_count = 0
                 d = False
                 
+                #%% reward function - TEAM
                 self.env.new_episode()
                 s = self.env.get_state().screen_buffer
                 episode_frames.append(s)
@@ -316,8 +351,13 @@ class Worker():
                 self.batch_rnn_state = rnn_state
                 
                     #state of variables at start
-                ammo=self.env.get_state().game_variables[0]
-                health=self.env.get_state().game_variables[1]
+                if Select_level!=4:
+                    ammo=self.env.get_state().game_variables[0]
+                    health=self.env.get_state().game_variables[1]
+                else:
+                    ammo=0
+                    health=self.env.get_state().game_variables[0]
+                    
                 while self.env.is_episode_finished() == False:
                     #Take an action using probabilities from policy network output.
                     a_dist,v,rnn_state = sess.run([self.local_AC.policy,self.local_AC.value,self.local_AC.state_out], 
@@ -334,22 +374,32 @@ class Worker():
                     if self.env.get_state()!=None:
                         #Prints ammo and health
                         #change in variables per frame
-                        d_ammo=ammo-self.env.get_state().game_variables[0]
-                        d_health=health=health-self.env.get_state().game_variables[1]
-            
-                        #state of variables per frame
-                        ammo=self.env.get_state().game_variables[0]
-                        health=self.env.get_state().game_variables[1]
-                    
-                    
+                        if Select_level!=4:
+                            d_ammo=ammo-self.env.get_state().game_variables[0]
+                            d_health=health=health-self.env.get_state().game_variables[1]
+                
+                            #state of variables per frame
+                            ammo=self.env.get_state().game_variables[0]
+                            health=self.env.get_state().game_variables[1]
+                        else:
+                            d_ammo=0
+                            d_health=health=health-self.env.get_state().game_variables[0]
+                
+                            #state of variables per frame
+                            ammo=0
+                            health=self.env.get_state().game_variables[0]
+                            
+                    #If health is gained
+                    if d_health>0:
+                        r+=10
                     if d_health<0:
                         r-=0.1
                     # If show is fired but no one is killed
                     if d_ammo!=0 and r!=1:
-                        r-=0.1
+                        r-=1
                     # if a monster is killed
-                    if r==1:
-                        r+=1
+                    if r==1 and Select_level!=4:
+                        r+=10
                         episode_kill+=1
                     
                     d = self.env.is_episode_finished()
@@ -365,7 +415,8 @@ class Worker():
                     
                     # Adds 1 to the reward to ensure positivity
                     episode_reward += (r/100)+1
-                
+                    
+                    #%% example
                     s = s1                    
                     total_steps += 1
                     episode_step_count += 1
@@ -396,11 +447,6 @@ class Worker():
     
                 # Saves summary statistics each time the network is trained
                 if len(episode_buffer) != 0 and episode_count != 0:
-                 #   if self.name == 'worker_0' and episode_count % 25 == 0:
-                  #      time_per_step = 0.05
-                   #     images = np.array(episode_frames)
-                        #make_gif(images,'./frames/image'+str(episode_count)+'.gif',
-                         #   duration=len(images)*time_per_step,true_image=True,salience=False)
                     if episode_count % 5 == 0 and self.name == 'worker_0':
                         saver.save(sess,self.model_path+'/model.cptk')
                         print ("Saved Model")
@@ -425,17 +471,22 @@ class Worker():
                     self.summary_writer.flush()
                 if self.name == 'worker_0':
                     sess.run(self.increment)
+                
                 episode_count += 1
+                #Ends coordinator
+                if episode_count>1000:
+                    coord.request_stop()
 
+#%% Parameters - TEAM
 max_episode_length = 300
 gamma = .99 # discount rate for advantage estimation and reward discounting
 s_size = 7056 # Observations are greyscale frames of 84 * 84 * 1
 a_size = 3 # Agent can move Left, Right, or Fire
-learn_rate=1e-3 # Learning rate
+learn_rate=1e-4 # Learning rate
 epsi=0.1 # epsilon for Adam optimizer
 #Specify if and which model to load on resuming training
-load_model = False
-model_path = './model_A3C_15052019_Ver1_' + str(Select_level)
+load_model = True
+model_path = './model_A3C_15052019_Ver10_' + str(Select_level)
 
 tf.reset_default_graph()
 
@@ -451,6 +502,7 @@ else:
 if not os.path.exists('./frames'):
     os.makedirs('./frames')
 
+#%% setting up of threads - EXAMPLE
 with tf.device("/cpu:0"): 
     global_episodes = tf.Variable(0,dtype=tf.int32,name='global_episodes',trainable=False)
     trainer = tf.train.AdamOptimizer(learning_rate=learn_rate,epsilon=epsi)
