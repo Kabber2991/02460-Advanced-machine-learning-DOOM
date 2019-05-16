@@ -38,3 +38,23 @@ Hans:
 - Read through the A2C links on implementation provided by Kasper
 - Look into getting the groom environment to work on 3 scenarios. 
 - 
+
+28.03.2019
+ •We decided to work with 1 main algorithms for now.
+ •Reading aboutPolicy gradientsand finding literature and reference and previous implementation onthe policy gradient(together)
+ •This week was dedicated to research these implementations.
+ •Research ways to implement policy gradient into the Viz-doom environment and try and get a initialrun of the policy gradient in the Viz-doom environment (Oleksandr)
+ 
+04.04.2019
+Initial policy gradient algorithm script is running now we need to improve 
+ Issues to solve:
+ •Fix saver function, so the training can be carried out from the last saved point (Kasper)
+ •Setting different rewards for individual actions, in order to maximize the total rewords(Tune how much point we lose by losing life, missing, killing a monster) (Olek)
+ •Making it easy to change different scenarios by only changing one parameter (Hans)
+ •Fix the actions. (Add other actions than turning right/left and shoot)Add: move left/right/forward/backward (Kasper)
+ •Research further Algorithms that could implemented into the Viz-doom environment(Al)
+ 
+ Week 8: 01.05.2019
+ •Write the theory of the two algorithms in relation to our experiments into the Article (Hans)
+ •Optimizing the loss function since the TensorBoard shows inconsistent result with the loss function and Amount of dead per episode(Olek)
+ •Optimization on the neural network, parameters and loss function for the A3C - Be aware of the lossfunction and parameters setting should be the same for the policy gradient in order to be able tocompare the results. (Kasper
