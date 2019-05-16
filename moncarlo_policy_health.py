@@ -1,6 +1,31 @@
+"""
+Created on Sun Mar 24 19:11:43 2019
 
+@author: Sasha
+"""
 
+"""
+NOTICE
+NOTICE
+NOTICE
+NOTICE
 
+EXAMPLE:
+This Policy gradiant is based on the example given in the following article:
+https://medium.freecodecamp.org/an-introduction-to-policy-gradients-with-cartpole-and-doom-495b5ef2207f
+
+TEAM:
+    S124217
+    s145436
+    s174454
+    
+In order to be as transparent with what is coded by the team, 
+and what was taken from the example. The script will be seperated in sections
+where the main contributor, that being team or example is marked in the begining 
+"""
+
+#from IPython.display import HTML
+#HTML('<iframe width="560" height="315" src="https://www.youtube.com/embed/wLTQRuizVyE?showinfo=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>')
 import tensorflow as tf      # Deep Learning library
 import numpy as np           # Handle matrices
 import vizdoom
@@ -47,15 +72,14 @@ with tf.device('/device:GPU:1'):
         ['take_cover.cfg', 'take_cover.wad', 'map01', 5, [10, 11], 0, 750],                          # 7 - TakeCover
         ['deathmatch.cfg', 'deathmatch.wad', '', 5, [x for x in range(NUM_ACTIONS) if x != 33], 0, 20] # 8 - Deathmatch
     ]
-    Select_level = 2
+    Select_level = 4
     
     
     
     dp = os.path.dirname(vizdoom.__file__)
     scenario = dp + "/scenarios/"
     
-
-#%% EXAMPLE
+#%% EXAMPLE 
     """
     Step 2
     Create our environment
@@ -69,14 +93,17 @@ with tf.device('/device:GPU:1'):
         
         # Load the correct scenario (in our case defend_the_center scenario)
         game.set_doom_scenario_path(scenario + DOOM_SETTINGS[Select_level][1])
+        game.set_living_reward(+1)
+        game.set_console_enabled(True)
+        
         game.init()
-#%% TEAM  
+#%% TEAM    
         # Here our possible actions
         # [[0,0,0],[1,0,0],[0,1,0],[0,0,1]]
         possible_actions=[[0,0,0]]
         possible_actions.extend(np.identity(3,dtype=int).tolist())
-#%% EXMAPLE
-    
+
+#%% EXAMPLE    
         return game, possible_actions
     
     game, possible_actions = create_environment()
@@ -111,12 +138,12 @@ with tf.device('/device:GPU:1'):
     def preprocess_frame(frame):
         # Crop the screen (remove the roof because it contains no information)
         # [Up: Down, Left: right]
-        cropped_frame = frame[:,40:,:]
+        cropped_frame = frame[:,50:,:]
     
         # Normalize Pixel Values
         normalized_frame = cropped_frame/255.0
-#%% TEAM
-    
+
+#%% TEAM    
         #Ændrer RGB til greyscale
         greyscale = np.array(normalized_frame).mean(axis=0)
     
@@ -124,15 +151,16 @@ with tf.device('/device:GPU:1'):
         #preprocessed_frame = transform.resize(normalized_frame, [100,160])
         #Sampler screen
         downscale_greyscale=signal.resample(greyscale,num=80,axis=0)
-        preprocessed_frame=signal.resample(downscale_greyscale,num=124,axis=1)
+        preprocessed_frame=signal.resample(downscale_greyscale,num=90,axis=1)
         return preprocessed_frame
     
     
     stack_size = 4 # We stack 4 frames
     
-#%% EXAMPLE    
+#%% EXAMPLE
+    
     # Initialize deque with zero-images one array for each image
-    stacked_frames  =  deque([np.zeros((80,124), dtype=np.int) for i in range(stack_size)], maxlen=4)
+    stacked_frames  =  deque([np.zeros((80,90), dtype=np.int) for i in range(stack_size)], maxlen=4)
     
     def stack_frames(stacked_frames, state, is_new_episode):
         # Preprocess frame
@@ -140,7 +168,7 @@ with tf.device('/device:GPU:1'):
     
         if is_new_episode:
             # Clear our stacked_frames
-            stacked_frames = deque([np.zeros((80,124), dtype=np.int) for i in range(stack_size)], maxlen=4)
+            stacked_frames = deque([np.zeros((80,90), dtype=np.int) for i in range(stack_size)], maxlen=4)
     
             # Because we're in a new episode, copy the same frame 4x
             stacked_frames.append(frame)
@@ -170,37 +198,41 @@ with tf.device('/device:GPU:1'):
     
         mean = np.mean(discounted_episode_rewards)
         std = np.std(discounted_episode_rewards)
+        
         discounted_episode_rewards = (discounted_episode_rewards - mean) / (std)
     
         return discounted_episode_rewards
     
-#%% TEAM    
+
+#%% TEAM   
     """
     Step 4
     SET HYPERPARAMETERS
     """
     
     ### ENVIRONMENT HYPERPARAMETERS
-    state_size = [80,124,4] # Our input is a stack of 4 frames hence 100x160x4 (Width, height, channels)
+    state_size = [80,90,4] # Our input is a stack of 4 frames hence 100x160x4 (Width, height, channels)
     action_size = len(possible_actions)# 4 possible actions: nothing, turn left, turn right, shoot
     stack_size = 4 # Defines how many frames are stacked together
     
     ## TRAINING HYPERPARAMETERS
     learning_rate = 0.0002
-    num_epochs = 2000  # Total epochs for training
+    num_epochs = 1000  # Total epochs for training
     
     batch_size = 1000 # Each 1 is a timestep (NOT AN EPISODE) # YOU CAN CHANGE TO 5000 if you have GPU
     gamma = 0.99 # Discounting rate
     
     ### MODIFY THIS TO FALSE IF YOU JUST WANT TO SEE THE TRAINED AGENT
     training = True
- 
+    
 #%% EXAMPLE
-    class PGNetwork: 
+    
+    class PGNetwork:
         def __init__(self, state_size, action_size, learning_rate, name='PGNetwork'):
             self.state_size = state_size
             self.action_size = action_size
             self.learning_rate = learning_rate
+            
     
             with tf.variable_scope(name):
                 with tf.name_scope("inputs"):
@@ -210,10 +242,11 @@ with tf.device('/device:GPU:1'):
                     self.inputs_= tf.placeholder(tf.float32, [None, *state_size], name="inputs_")
                     self.actions = tf.placeholder(tf.int32, [None, action_size], name="actions")
                     self.discounted_episode_rewards_ = tf.placeholder(tf.float32, [None, ], name="discounted_episode_rewards_")
-                    
+    
     
                     # Add this placeholder for having this variable in tensorboard
                     self.mean_reward_ = tf.placeholder(tf.float32, name="mean_reward")
+                    self.frame_surv_ = tf.placeholder(tf.float32, name = "frame_surv")
     
                 with tf.name_scope("conv1"):
                     """
@@ -228,7 +261,8 @@ with tf.device('/device:GPU:1'):
                                                  kernel_size = [8,8],
                                                  strides = [4,4],
                                                  padding = "VALID",
-                                                  kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                                 kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                                 activation = tf.nn.elu,
                                                  name = "conv1")
     
                     self.conv1_batchnorm = tf.layers.batch_normalization(self.conv1,
@@ -251,7 +285,8 @@ with tf.device('/device:GPU:1'):
                                          kernel_size = [4,4],
                                          strides = [2,2],
                                          padding = "VALID",
-                                        kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                         kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                         activation = tf.nn.elu,
                                          name = "conv2")
     
                     self.conv2_batchnorm = tf.layers.batch_normalization(self.conv2,
@@ -274,7 +309,8 @@ with tf.device('/device:GPU:1'):
                                          kernel_size = [4,4],
                                          strides = [2,2],
                                          padding = "VALID",
-                                        kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                         kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                         activation = tf.nn.elu,
                                          name = "conv3")
     
                     self.conv3_batchnorm = tf.layers.batch_normalization(self.conv3,
@@ -294,6 +330,7 @@ with tf.device('/device:GPU:1'):
                                           units = 512,                       #CHANGED THIS FROM 512! TRY TO SOLVE 00M ResourcheExhaustError
                                           activation = tf.nn.elu,
                                                kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                                               
                                         name="fc1")
     
                 with tf.name_scope("logits"):
@@ -302,23 +339,62 @@ with tf.device('/device:GPU:1'):
                                                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
                                                   units = 4,
                                                 activation=None)
-    
+
+#%% TEAM                   
+                with tf.name_scope("value"):
+                    self.value = tf.layers.dense(inputs=self.fc, 
+                                                 units = 1)
+
                 with tf.name_scope("softmax"):
                     self.action_distribution = tf.nn.softmax(self.logits)
     
-#%% TEAM    
+    
                 with tf.name_scope("loss"):
                     # tf.nn.softmax_cross_entropy_with_logits computes the cross entropy of the result after applying the softmax function
                     # If you have single-class labels, where an object can only belong to one class, you might now consider using
                     # tf.nn.sparse_softmax_cross_entropy_with_logits so that you don't have to convert your labels to a dense one-hot array.
                     self.neg_log_prob = tf.nn.softmax_cross_entropy_with_logits_v2(logits = self.logits, labels = self.actions)
-                    self.loss = tf.reduce_mean(self.neg_log_prob * self.discounted_episode_rewards_)
+                    self.pg_loss = tf.reduce_mean((self.discounted_episode_rewards_ - self.value) *self.neg_log_prob)
+                    
+                    self.val_loss = tf.reduce_mean(tf.square(self.discounted_episode_rewards_ - self.value))
+                    self.loss = 0.7*self.pg_loss + self.val_loss 
+                        
+               #pg_loss = tf.reduce_mean((D_R - value) * tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=Y))
+               #value_loss = value_scale * tf.reduce_mean(tf.square(D_R - value))
+
+
+
+                    #self.loss = tf.reduce_mean(self.neg_log_prob * self.discounted_episode_rewards_)
 
     
                 with tf.name_scope("train"):
                     self.train_opt = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.loss)
 
-#%% EXAMPLE
+
+
+
+
+# =============================================================================
+#                 with tf.name_scope("train"):
+#                     
+#                     
+#                     # Create Optimizer
+#                     self.optimizer = tf.train.AdamOptimizer(self.learning_rate)
+#                     self.grads = tf.gradients(self.loss, tf.trainable_variables())
+#                     self.grads, _ = tf.clip_by_global_norm(self.grads, 40) # gradient clipping
+#                     self.grads_and_vars = list(zip(self.grads, tf.trainable_variables()))
+#                     self.train_opt = self.optimizer.apply_gradients(self.grads_and_vars)
+#  
+# =============================================================================
+                    #self.train_opt = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.loss)
+
+    
+              #  with tf.name_scope("train"):
+                    #self.train_opt = tf.train.RMSPropOptimizer(self.learning_rate).minimize(self.loss)
+                   # self.train_opt = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
+
+#%% EXAMPLE 
+                    
     # Reset the graph
     tf.reset_default_graph()
     
@@ -330,8 +406,8 @@ with tf.device('/device:GPU:1'):
     init = tf.global_variables_initializer()
     sess.run(init)
     
-#%% TEAM
     
+#%% TEAM    
     """
     Step 6
     SET UP TENSORBOARD
@@ -339,7 +415,7 @@ with tf.device('/device:GPU:1'):
     
     # Setup TensorBoard Writer
     NAME_pg = "policy_grad{}".format(int(time.time()))
-    writer = tf.summary.FileWriter("/tensorboard/policy_gradients/health_gathering/{}".format("line_last")) #New saver in different folders format(NAME_pg)
+    writer = tf.summary.FileWriter("/tensorboard/policy_gradients/health_gathering/{}".format("07polic_test2")) #New saver in different folders format(NAME_pg)
     
     writer.add_graph(sess.graph)
     
@@ -348,6 +424,8 @@ with tf.device('/device:GPU:1'):
     
     ## Reward mean
     tf.summary.scalar("Perf/Reward", PGNetwork.mean_reward_ )
+    
+    tf.summary.scalar("frame_surv", PGNetwork.frame_surv_ )
     
     write_op = tf.summary.merge_all()
     
@@ -384,12 +462,15 @@ with tf.device('/device:GPU:1'):
     
         return reward
     """
+
+#%% EXAMPLE 
+    
     """
     Step 7
     TRAIN OUR AGENT
     """
-
-#%% EXAMPLE   
+    tf.trainable_variables()
+    
     def make_batch(batch_size, stacked_frames):
         # Initialize lists: states, actions, rewards_of_episode, rewards_of_batch, discounted_rewards
         states, actions, rewards_of_episode, rewards_of_batch, discounted_rewards = [], [], [], [], []
@@ -400,8 +481,8 @@ with tf.device('/device:GPU:1'):
         # Keep track of how many episodes in our batch (useful when we'll need to calculate the average reward per episode)
         episode_num  = 1
         frames_survived=0
-        Kills= 0
-        Kill_list=[]    
+#        Kills= 0
+#        Kill_list=[]    
         
         # Launch a new episode
         game.new_episode()
@@ -411,8 +492,9 @@ with tf.device('/device:GPU:1'):
         state, stacked_frames = stack_frames(stacked_frames, state, True)
     
         #state of variables at start
-        ammo=game.get_state().game_variables[0]
-        health=game.get_state().game_variables[1]
+#        ammo=game.get_state().game_variables[0]
+        health=game.get_state().game_variables[0]   #changed from 1 to 0
+        
         while True:
             # Run State Through Policy & Calculate Action
             try:
@@ -436,21 +518,21 @@ with tf.device('/device:GPU:1'):
     
             frames_survived+=1
     
-            if reward==1:
-                Kills +=1
-                print("EPIC KILL")
-            elif reward==-1:
-                print("YOU DIED")
+#            if reward==1:
+#                Kills +=1
+#                print("EPIC KILL")
+#            elif reward==-1:
+#                print("YOU DIED")
     
             if game.get_state()!=None:
                 #Prints ammo and health
                 #change in variables per frame
-                d_ammo=ammo-game.get_state().game_variables[0]
-                d_health=health=health-game.get_state().game_variables[1]
+#                d_ammo=ammo-game.get_state().game_variables[0]
+                d_health=health=health-game.get_state().game_variables[0]      #changed from 1 to 0
     
                 #state of variables per frame
-                ammo=game.get_state().game_variables[0]
-                health=game.get_state().game_variables[1]
+#                ammo=game.get_state().game_variables[0]
+                health=game.get_state().game_variables[0]                     #changed from 1 to 0
     
            # reward=rewardfunction(reward,action,ammo,health,d_ammo,d_health)
     
@@ -467,11 +549,11 @@ with tf.device('/device:GPU:1'):
     
             if done:
                 #appends kills
-                Kill_list.append(Kills)
-                Kills=0
+#                Kill_list.append(Kills)
+#                Kills=0
                 
                 # The episode ends so no next state
-                next_state = np.zeros((3,80, 124), dtype=np.int)
+                next_state = np.zeros((3,80, 90), dtype=np.int)
                 next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
     
     
@@ -509,7 +591,7 @@ with tf.device('/device:GPU:1'):
                 next_state, stacked_frames = stack_frames(stacked_frames, next_state, False)
                 state = next_state
             
-        return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num,frames_survived,Kill_list
+        return np.stack(np.array(states)), np.stack(np.array(actions)), np.concatenate(rewards_of_batch), np.concatenate(discounted_rewards), episode_num,frames_survived  #,Kill_list
     
 #%% TEAM
     # Keep track of all rewards total for each batch
@@ -520,18 +602,18 @@ with tf.device('/device:GPU:1'):
     mean_reward_total = []
     epoch = 1
     average_reward = []
-    Highest_total_kills= 0
-    Highest_total_kills_overall= []
+#    Highest_total_kills= 0
+#    Highest_total_kills_overall= []
     
     # Saver
     saver = tf.train.Saver()
     
     #Specify if and which model to load on resuming training
-    reload=True
-    reloadModel="model_ver4.ckpt"
+    reload=False
+    reloadModel="health_wagon_test.ckpt"
     
     #Specify the new name for the model if the script is to make a new model from scratch
-    modelname="line_last.ckpt"
+    modelname="line_wagon_final.ckpt"
     
     
     if training == True:
@@ -540,11 +622,11 @@ with tf.device('/device:GPU:1'):
             restorepath= "./models/" + reloadModel
             saver.restore(sess, "./models/" + reloadModel)
             print("Resuming training of model: " + reloadModel)
-
-#%% EXAMPLE    
+   
+#%% EXAMPLE
         while epoch < num_epochs + 1:
             # Gather training data
-            states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb,frames_mb,kills = make_batch(batch_size, stacked_frames)
+            states_mb, actions_mb, rewards_of_batch, discounted_rewards_mb, nb_episodes_mb,frames_mb = make_batch(batch_size, stacked_frames)
     
             ### These part is used for analytics
             # Calculate the total reward ot the batch
@@ -565,8 +647,8 @@ with tf.device('/device:GPU:1'):
             
             #Calculate maximum Kills
             #maxkils = np.amax(OverAllHighestKills)
-            Highest_total_kills_overall.extend(kills)
-            maxkils1 = np.amax(Highest_total_kills_overall)
+#            Highest_total_kills_overall.extend(kills)
+#            maxkils1 = np.amax(Highest_total_kills_overall)
             
     
             print("==========================================")
@@ -577,24 +659,49 @@ with tf.device('/device:GPU:1'):
             print("Mean Reward of that batch {}".format(mean_reward_of_that_batch))
             print("Average Reward of all training: {}".format(average_reward_of_all_training))
             print("Max reward for a batch so far: {}".format(maximumRewardRecorded))
-            print("Max kills so far: {}".format(maxkils1))
+            print("Frames survived: {}".format(frames_mb))
+
+#            print("Max kills so far: {}".format(maxkils1))
             
             # Feedforward, gradient and backpropagation
-            loss_, _ = sess.run([PGNetwork.loss, PGNetwork.train_opt], feed_dict={PGNetwork.inputs_: states_mb.reshape((len(states_mb), 80,124,4)),
+            loss_, _, neg_log_prob_, disc_ep_rew = sess.run([PGNetwork.loss, PGNetwork.train_opt, PGNetwork.neg_log_prob, PGNetwork.discounted_episode_rewards_], feed_dict={PGNetwork.inputs_: states_mb.reshape((len(states_mb), 80,90,4)),
                                                                 PGNetwork.actions: actions_mb,
                                                                          PGNetwork.discounted_episode_rewards_: discounted_rewards_mb
                                                                         })
-    
+          #  buttons = game.get_available_buttons()
+          #  print(buttons)
             print("Training Loss: {}".format(loss_))
-    
+
+#%% TEAM            
+            
+            #Renders a state and calculates the probabilities for each action
+            if epoch % 20 == 0:
+                game.new_episode()
+                #game.get_state().screen_buffer
+                stat = preprocess_frame(game.get_state().screen_buffer)
+                prob, val = sess.run([PGNetwork.action_distribution, PGNetwork.value],
+                                                           feed_dict={PGNetwork.inputs_: states_mb.reshape((len(states_mb), 80,90,4))})
+
+
+                plt.imshow(stat, interpolation='nearest')
+                plt.show()
+                print('Turn Left: {:4.2f}  Turn Right: {:4.2f}  Move Forward {:4.2f} Do nothing {:4.2f}'.format(prob[0][0],prob[0][2], prob[0][1], prob[0][3]))
+                print('Approximated State Value: {:4.4f}'.format(val[0][0]))
+                
+            #print("-------")
+            #print("-------")
+            #print("NEG_LOG_PROB: {} {}".format(len(neg_log_prob_),neg_log_prob_))
+            #print("DISC_EP_REW: {} {}".format(len(disc_ep_rew),disc_ep_rew))
             # Write TF Summaries
-            summary = sess.run(write_op, feed_dict={PGNetwork.inputs_: states_mb.reshape((len(states_mb), 80,124,4)),
+            
+#%% EXAMPLE
+            summary = sess.run(write_op, feed_dict={PGNetwork.inputs_: states_mb.reshape((len(states_mb), 80,90,4)),
                                                                 PGNetwork.actions: actions_mb,
                                                                          PGNetwork.discounted_episode_rewards_: discounted_rewards_mb,
-                                                                        PGNetwork.mean_reward_: mean_reward_of_that_batch
+                                                                        PGNetwork.mean_reward_: mean_reward_of_that_batch,
+                                                                        PGNetwork.frame_surv_:frames_mb
                                                                         })
     
-            #summary = sess.run(write_op, feed_dict={x: s_.reshape(len(s_),84,84,1), y:a_, d_r: d_r_, r: r_, n: n_})
             writer.add_summary(summary, epoch)
             writer.flush()
     
@@ -676,5 +783,15 @@ with tf.device('/device:GPU:1'):
     
     
             print("Score for episode ", i, " :", game.get_total_reward())
+            game.new_episode()
+            #game.get_state().screen_buffer
+            stat = preprocess_frame(game.get_state().screen_buffer)
+            prob, val = sess.run([PGNetwork.action_distribution, PGNetwork.value],
+                                                       feed_dict={PGNetwork.inputs_: states_mb.reshape((len(states_mb), 80,90,4))})
+#%% TEAM
+            plt.imshow(stat, interpolation='nearest')
+            plt.show()
+            print('Turn Right: {:4.2f}  Turn Left: {:4.2f}  Move Forward {:4.2f} Do nothing {:4.2f}'.format(prob[0][0],prob[0][2], prob[0][1], prob[0][3]))
+            print('Approximated State Value: {:4.4f}'.format(val[0][0]))
             
         game.close()
