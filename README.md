@@ -10,7 +10,7 @@ moncarlo_policy_gradients.py - Main script for policy gradient algorithm for "De
 moncarlo_policy_health.py - Main script for A3C algorithm for "Health gathering"<br />
 
 Dir: <br />
-logbook - Contains logbook entries by team members <br />
+Todolist- Contains logbook and to do list by team members <br />
 model_A3C_15052019_Ver8_2 - Contains training data and model for the "Defend the center"-scenario from the A3C <br />
 model_A3C_15052019_Ver1_3 - Contains training data and model for the "Defend the line"-scenario from the A3C <br />
 model_A3C_15052019_Ver10_4 - Contains training data and model for the "Health gathering"-scenario from the A3C <br />
