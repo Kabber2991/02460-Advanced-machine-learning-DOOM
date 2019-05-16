@@ -6,6 +6,8 @@ The overall structure of the repository is explained below: <br />
 
 Scripts: <br />
 a3cdoom.py - Main script for A3C algorithm <br />
+moncarlo_policy_gradients.py - Main script for policy gradient algorithm for "Defend the center" and "Defend the line" <br />
+moncarlo_policy_health.py - Main script for A3C algorithm for "Health gathering"<br />
 
 Dir: <br />
 logbook - Contains logbook entries by team members <br />
